@@ -4,8 +4,13 @@ const cors = require('cors');
 const { seedDatabase } = require('./database');
 let whatsapp = null;
 
-if (process.env.NODE_ENV !== 'production') {
+const enableWhatsApp = process.env.ENABLE_WHATSAPP === 'true';
+
+if (enableWhatsApp) {
   whatsapp = require('./whatsapp');
+  console.log('✅ WhatsApp enabled');
+} else {
+  console.log('⚠️ WhatsApp disabled');
 }
 const connectDB = require('./config/db');
 connectDB();
