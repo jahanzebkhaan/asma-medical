@@ -1,60 +1,68 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
+if (process.env.ENABLE_WHATSAPP !== 'true') {
+  console.log('⚠️ WhatsApp module fully disabled');
 
-let latestQR = null;
-let isWhatsAppReady = false;
+  module.exports = {
+    getQR: () => null,
+    isReady: () => false,
+    sendMessage: async () => ({
+      success: false,
+      disabled: true
+    })
+  };
 
-const client = new Client({
+} else {
+  const { Client, LocalAuth } = require('whatsapp-web.js');
+  const qrcode = require('qrcode');
+
+  let currentQR = null;
+  let ready = false;
+
+  const client = new Client({
     authStrategy: new LocalAuth({
-        clientId: "AsmaMedical"
+      clientId: 'asma-medical'
     }),
     puppeteer: {
-        headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ]
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox'
+      ]
     }
-});
+  });
 
-client.on('qr', (qr) => {
-    latestQR = qr;
+  client.on('qr', async (qr) => {
+    currentQR = await qrcode.toDataURL(qr);
+    console.log('📱 WhatsApp QR generated');
+  });
 
-    console.log('');
-    console.log('📱 WhatsApp QR Generated');
-    console.log('👉 Open AsmaMedical frontend to scan QR');
-});
-
-client.on('authenticated', () => {
+  client.on('ready', () => {
+    ready = true;
     console.log('🔐 WhatsApp Authenticated');
-});
+  });
 
-client.on('ready', () => {
-    isWhatsAppReady = true;
-    latestQR = null;
+  client.initialize();
 
-    console.log('');
-    console.log('✅ WhatsApp Connected Successfully!');
-    console.log('🚀 AsmaMedical WhatsApp Engine is Live');
-});
+  module.exports = {
+    getQR: () => currentQR,
+    isReady: () => ready,
+    sendMessage: async (number, message) => {
+      try {
+        const formatted = number.replace(/\+/g, '') + '@c.us';
 
-client.on('auth_failure', msg => {
-    console.error('❌ Auth Failure:', msg);
-});
+        await client.sendMessage(formatted, message);
 
-client.on('disconnected', reason => {
-    console.log('⚠️ WhatsApp Disconnected:', reason);
-});
+        return {
+          success: true
+        };
 
-client.initialize();
+      } catch (error) {
+        console.error(error);
 
-module.exports = {
-    client,
-    getQR: () => latestQR,
-    isReady: () => isWhatsAppReady
-};
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+    }
+  };
+}
