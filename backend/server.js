@@ -2,7 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { seedDatabase } = require('./database');
-const whatsapp = require('./whatsapp');
+let whatsapp = null;
+
+if (process.env.NODE_ENV !== 'production') {
+  whatsapp = require('./whatsapp');
+}
 const connectDB = require('./config/db');
 connectDB();
 const app = express();
@@ -22,6 +26,13 @@ app.use('/api/broadcasts', require('./routes/broadcasts'));
 // WhatsApp QR Endpoint
 app.get('/api/whatsapp/qr', async (req, res) => {
   try {
+    if (!whatsapp) {
+      return res.json({
+        success: false,
+        message: 'WhatsApp disabled in production deployment'
+      });
+    }
+
     const qr = whatsapp.getQR();
 
     if (!qr) {
@@ -47,6 +58,13 @@ app.get('/api/whatsapp/qr', async (req, res) => {
 
 // WhatsApp Connection Status
 app.get('/api/whatsapp/status', (req, res) => {
+  if (!whatsapp) {
+    return res.json({
+      connected: false,
+      disabled: true
+    });
+  }
+
   res.json({
     connected: whatsapp.isReady()
   });
